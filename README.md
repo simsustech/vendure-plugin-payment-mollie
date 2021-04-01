@@ -1,63 +1,62 @@
-# Vendure Plugin Template
+# Mollie payment plugin for Vendure.io
 
-This is a template for a plugin for the [Vendure e-commerce framework](https://www.vendure.io/).
+## Warning: Not tested in production yet
 
-It is intended for plugins which are to be **distributed as npm packages**, either publicly or privately. If you are building a one-off plugin for a specific project, it probably makes more sense to simply nest those plugins into the project source, as is demonstrated by the [real-world-vendure folder structure](https://github.com/vendure-ecommerce/real-world-vendure)
+This plugins provides a [PaymentMethodHandler](https://www.vendure.io/docs/typescript-api/payment/payment-method-handler/) for [Mollie](https://www.mollie.com/). It also provides a simple PaymentEligibilityChecker which checks if an order can be paid with iDeal according to the [limits](https://help.mollie.com/hc/en-us/articles/115000667365-What-is-the-minimum-and-maximum-amount-per-payment-method-).
 
-Further information on how Vendure plugins can be used can be found in the [vendure.io Plugins documentation](https://www.vendure.io/docs/plugins/).
+## Arguments
+- apiKey: The [API key for your Mollie account](https://help.mollie.com/hc/en-us/articles/115000328205-Where-can-I-find-the-live-API-key-)
+- webhookHostname: The hostname of your Vendure server. The plugin provides a controller which handles webhooks performed by Mollie after the status of a payment changes. Mollie contacts your server at `https://webhookHostname/mollie`.
+- redirectUrl: The URL which Mollie redirects you to after the payment is completed. Can also be set individually for each payment by setting `redirectUrl` in the metadata of [PaymentInput](https://www.vendure.io/docs/graphql-api/shop/input-types/#paymentinput).
 
-## e2e Testing
+## Installation
+- `yarn add vendure-plugin-payment-mollie`
+- Add MolliePlugin to your [Vendure config](https://www.vendure.io/docs/typescript-api/configuration/vendure-config/):
+```
+import { MolliePlugin } from 'vendure-plugin-payment-mollie'
 
-See `src/e2e` for details, run tests with:
-
-```bash
-yarn test
+...
+plugins: [
+  ...
+  MolliePlugin,
+  ....
+]
 ```
 
-## GraphQL Codegen
+You might also want to add your own PaymentEligibilityChecker or CustomPaymentProcess to the configuration.
 
-This repository can automatically generate GraphQL types for use in the plugin code (see `src/e2e/plugin.e2e-spec.ts`).  To generate the types, ensure the development server is running, and use the command:
-
-```bash
-yarn dev:generate-types
+- Create a new PaymentMethod, either in the Admin UI or with a GraphQL mutation. For example:
 ```
+  mutation {
+    createPaymentMethod(input:{
+      name: "mollie-payment-provider",
+      code: "mollie-payment-provider",
+      enabled: true,
+      checker: {
+          code: "ideal-payment-eligibility-checker",
+          arguments: []
+      },
+      handler: {
+        code: "mollie-payment-provider",
+        arguments: [
+        {
+            name: "webhookHostname",
+            value: "https://yourvendurehostname"
+        },
+        {
+            name: "apiKey",
+            value: "REPLACE_WITH_YOUR_MOLLIE_API_KEY"
+        }]
+      }
+    }) {
+      name
+      code
+    }
+  }
+  ```
 
-## Linting
-
-This repository uses [eslint](https://eslint.org/) & [Prettier](https://prettier.io/) for finding and fixing common code issues and formatting your code in a standard way. To identify and fix issues, use the command:
-
-```bash
-yarn lint:fix
-```
-
-## Admin UI
-
-This repository also implements a basic Admin UI extension, which displays and allows editing of the `Example` entity.  These UI screens make use of the `BaseList`, `BaseDetail`, and `BaseResolver` classes, which are helpful for handling CRUD operations.
-
-## Development Server
-
-A development server is configured in the `dev-server` folder, using [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) to spin up a Postgres database, as well as a server and worker.  This is used to test the plugin during development.
-
-To start the server, run:
-
-```bash
-yarn dev:run
-```
-
-To populate or reset the database, run the following command:
-
-```bash
-yarn dev:populate
-```
-
-To restart the server (only) after a change, use the following command:
-
-```bash
-yarn dev:restart
-```
-
-Note: The Docker containers must be rebuilt when updating dependencies.  Use the following command:
-
-```bash
-yarn dev:rebuild
-```
+  ### Testing
+  To run the tests you need to provide the [test API key](https://docs.mollie.com/guides/testing) as an environment variable:
+  ```
+   MOLLIE_TEST_API_KEY=test_yourmollietestapikey yarn test
+  ```
